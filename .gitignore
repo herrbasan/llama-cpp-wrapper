@@ -1,0 +1,28 @@
+node_modules/
+logs/
+dist/
+*.exe
+*.dll
+*.exp
+*.lib
+
+# Build artifacts
+build/build/
+build/out/
+
+# llama.cpp build artifacts (build dir is in %TEMP%, submodule tracked by git)
+build/out/
+
+# Build logs
+build.log
+
+# IDE
+.vscode/
+.kilo/
+
+# State — no state.json in v2 (no detach mode)
+state.json
+
+# OS
+Thumbs.db
+desktop.ini

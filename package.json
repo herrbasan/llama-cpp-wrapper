@@ -1,0 +1,11 @@
+{
+  "name": "llama-cpp-wrapper",
+  "version": "2.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Zero-dependency Node.js manager for llama-server. Thin OpenAI-compatible proxy with process lifecycle.",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node tests/smoke.js"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "host": "0.0.0.0",
+  "port": 4080,
+  "serverPort": 4081,
+  "maxPerCategory": { "chat": 1, "embedding": 1 },
+
+  "llamaServerPath": "dist/universal/llama-server.exe",
+  "modelsDir": "E:\\LM Studio Models",
+
+  "defaultCtxSize": 8192,
+  "defaultGpuLayers": 99,
+  "defaultThreads": 8,
+  "flashAttention": true,
+
+  "defaultParallelSlots": 1,
+  "defaultBatchSize": 2048,
+  "defaultUbatchSize": 512,
+
+  "firstByteTimeoutMs": 300000,
+  "drainTimeoutMs": 30000,
+  "modelScanTtlMs": 60000
+}

@@ -1,0 +1,52 @@
+{
+  "qwen/qwen3-embedding-0.6b-gguf": {
+    "ctxSize": 32768,
+    "gpuLayers": 99,
+    "embedding": true,
+    "pooling": "last",
+    "flashAttention": false
+  },
+  "qwen/qwen3-embedding-4b-gguf": {
+    "ctxSize": 32768,
+    "gpuLayers": 99,
+    "embedding": true,
+    "pooling": "last",
+    "flashAttention": false,
+    "ubatchSize": 2048
+  },
+  "qwen/qwen3-embedding-8b-gguf": {
+    "ctxSize": 32768,
+    "gpuLayers": 99,
+    "embedding": true,
+    "pooling": "last",
+    "flashAttention": false
+  },
+  "groxaxo/Huihui-gemma-4-26B-A4B-it-abliterated-GGUF": {
+    "ctxSize": 128000,
+    "gpuLayers": 99,
+    "flashAttention": true,
+    "chatTemplateFile": "templates/gemma4.jinja"
+  },
+  "HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive": {
+    "ctxSize": 128000,
+    "gpuLayers": 99,
+    "flashAttention": true,
+    "chatTemplateFile": "templates/gemma4.jinja"
+  },
+  "HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive": {
+    "ctxSize": 128000,
+    "gpuLayers": 99,
+    "flashAttention": true
+  },
+  "llmfan46/gemma-4-26B-A4B-it-ultra-uncensored-heretic-GGUF": {
+    "ctxSize": 128000,
+    "gpuLayers": 99,
+    "flashAttention": true,
+    "chatTemplateFile": "templates/gemma4.jinja"
+  },
+  "llmfan46/Qwen3.6-27B-uncensored-heretic-v2-GGUF": {
+    "ctxSize": 128000,
+    "gpuLayers": 99,
+    "flashAttention": true
+  }
+}
