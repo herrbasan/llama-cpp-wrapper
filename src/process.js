@@ -89,6 +89,7 @@ function buildArgs(ggufPath, options, port) {
         '-c', options.ctxSize.toString(),
         '-ngl', options.gpuLayers.toString(),
         '--parallel', options.parallelSlots.toString(),
+        '--timeout', String(Math.floor((config.requestTimeoutMs ?? 120000) / 1000)),
         '-t', options.threads.toString(),
     ];
 

@@ -85,6 +85,8 @@ function proxyToInstance(req, res, bodyBuffer, instance) {
         const finish = () => {
             if (completed) return;
             completed = true;
+            clearTimeout(totalTimer);
+            clearTimeout(firstByteTimer);
             untrackRequest(instance.modelKey);
             resolve();
         };
@@ -100,6 +102,21 @@ function proxyToInstance(req, res, bodyBuffer, instance) {
         if (req.headers['accept']) {
             headers['Accept'] = req.headers['accept'];
         }
+
+        // Total request timeout � catches stuck slots that produce first byte but never finish
+        const totalTimer = setTimeout(() => {
+            if (!completed) {
+                log.warn(`Request total timeout (${config.requestTimeoutMs}ms) — destroying stuck slot`);
+                proxyReq.destroy();
+                if (!res.headersSent) {
+                    sendJson(res, 504, {
+                        error: 'Gateway Timeout',
+                        details: `Request exceeded total timeout of ${config.requestTimeoutMs}ms`,
+                    });
+                }
+                finish();
+            }
+        }, config.requestTimeoutMs);
 
         // First-byte timeout — catches hung llama-server
         const firstByteTimer = setTimeout(() => {

@@ -58,9 +58,12 @@ export default {
     defaultUbatchSize: cfg.defaultUbatchSize ?? 512,
 
     // Timeouts
-    firstByteTimeoutMs: cfg.firstByteTimeoutMs ?? 300000,
+    firstByteTimeoutMs: cfg.firstByteTimeoutMs ?? 60000,
     drainTimeoutMs: cfg.drainTimeoutMs ?? 30000,
     modelScanTtlMs: cfg.modelScanTtlMs ?? 60000,
+
+    // Total request timeout — kills stuck slots even after first byte arrives
+    requestTimeoutMs: cfg.requestTimeoutMs ?? 120000,
 
     // Paths
     projectRoot,
