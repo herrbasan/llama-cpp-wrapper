@@ -16,7 +16,8 @@
   "defaultBatchSize": 2048,
   "defaultUbatchSize": 512,
 
-  "firstByteTimeoutMs": 300000,
+  "firstByteTimeoutMs": 360000,
+  "requestTimeoutMs": 360000,
   "drainTimeoutMs": 30000,
   "modelScanTtlMs": 60000
 }

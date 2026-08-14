@@ -4,7 +4,8 @@
     "gpuLayers": 99,
     "embedding": true,
     "pooling": "last",
-    "flashAttention": false
+    "flashAttention": false,
+    "parallelSlots": 1
   },
   "qwen/qwen3-embedding-4b-gguf": {
     "ctxSize": 32768,
@@ -12,14 +13,16 @@
     "embedding": true,
     "pooling": "last",
     "flashAttention": false,
-    "ubatchSize": 2048
+    "ubatchSize": 2048,
+    "parallelSlots": 1
   },
   "qwen/qwen3-embedding-8b-gguf": {
     "ctxSize": 32768,
     "gpuLayers": 99,
     "embedding": true,
     "pooling": "last",
-    "flashAttention": false
+    "flashAttention": false,
+    "parallelSlots": 1
   },
   "groxaxo/Huihui-gemma-4-26B-A4B-it-abliterated-GGUF": {
     "ctxSize": 128000,

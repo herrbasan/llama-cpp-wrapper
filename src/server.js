@@ -33,6 +33,7 @@ import {
     trackRequest,
     untrackRequest,
     sweepOrphans,
+    startWatchdog,
 } from './process.js';
 
 const log = createLogger();
@@ -433,6 +434,9 @@ server.listen(config.port, config.host, async () => {
         console.error(`FATAL: ${err.message}`);
         process.exit(1);
     }
+
+    // Slot-health watchdog — recovers wedged embedding slots automatically.
+    startWatchdog();
 
     const displayHost = config.host === '0.0.0.0' ? 'localhost' : config.host;
     log.info(`llama-cpp-wrapper listening on http://${displayHost}:${config.port}`);

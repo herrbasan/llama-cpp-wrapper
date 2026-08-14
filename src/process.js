@@ -496,6 +496,84 @@ export function getAllInstances() {
     }));
 }
 
+// --- Slot-health watchdog ---
+// llama-server slots can wedge (known upstream bug class): /health stays ok
+// and the PID stays alive, but the slot silently stops serving requests. The
+// wrapper only health-checks at startup, so a wedged slot blocks every embed
+// indefinitely (the first-byte timeout is the only escape — and it was long).
+// This watchdog probes each embedding instance with a tiny real embed and
+// kills+releases the instance after repeated failures, so the next request
+// respawns a fresh llama-server via ensureModel. Converts a silent
+// multi-minute outage into sub-minute self-healing.
+
+const WATCHDOG_INTERVAL_MS = 30_000;
+const WATCHDOG_PROBE_TIMEOUT_MS = 5_000;
+const WATCHDOG_STRIKES_TO_KILL = 2;
+
+function probeEmbedHealth(instance) {
+    // Out-of-band probe: GET /slots. A real embed probe competes for a slot —
+    // at --parallel 1 it queues behind any in-flight batch, times out, and
+    // false-kills a healthy instance. /slots is served by llama-server's HTTP
+    // thread without touching inference slots, and a /slots HANG is the
+    // documented wedge signature (llama.cpp #20921: /health stays OK while
+    // /slots hangs), so it is a strictly stronger signal than an embed
+    // round-trip and never consumes a slot.
+    const host = config.host === '0.0.0.0' ? '127.0.0.1' : config.host;
+    return new Promise((resolve) => {
+        const req = http.request(
+            {
+                host,
+                port: instance.port,
+                path: '/slots',
+                method: 'GET',
+            },
+            (res) => {
+                res.resume();
+                res.on('end', () => resolve({ ok: res.statusCode === 200 }));
+            }
+        );
+        req.on('error', () => resolve({ ok: false }));
+        req.setTimeout(WATCHDOG_PROBE_TIMEOUT_MS, () => {
+            req.destroy();
+            resolve({ ok: false });
+        });
+        req.end();
+    });
+}
+
+let watchdogTimer = null;
+const wedgeStrikes = new Map(); // modelKey -> consecutive probe failures
+
+export function startWatchdog() {
+    if (watchdogTimer) return;
+    watchdogTimer = setInterval(async () => {
+        for (const instance of instances.values()) {
+            if (instance.config.embedding !== true) continue; // embed slots only
+            if (instance.state !== 'running') continue;        // skip spawning/draining
+            // Probe /slots even while requests are in flight. /slots is served
+            // out-of-band and responds when a slot is merely busy (healthy); it
+            // only HANGS when the inference loop is truly wedged (llama.cpp
+            // #20921: /health OK while /slots hangs). A wedge does NOT release
+            // on its own — it needs kill + respawn — so skipping the probe while
+            // inFlight>0 would leave a wedged slot undetected under sustained
+            // load and turn a recoverable wedge into permanent embed failure.
+            const healthy = await probeEmbedHealth(instance);
+            if (healthy) {
+                if (wedgeStrikes.has(instance.modelKey)) wedgeStrikes.set(instance.modelKey, 0);
+                continue;
+            }
+            const strikes = (wedgeStrikes.get(instance.modelKey) || 0) + 1;
+            wedgeStrikes.set(instance.modelKey, strikes);
+            if (strikes >= WATCHDOG_STRIKES_TO_KILL) {
+                log.error(`[Watchdog] Embed slot wedged on ${instance.modelKey} (port ${instance.port}) — ${strikes} failed probes, killing + respawning (inFlight at kill: ${instance.inFlight})`);
+                wedgeStrikes.delete(instance.modelKey);
+                killInstance(instance.modelKey).catch(() => {});
+            }
+        }
+    }, WATCHDOG_INTERVAL_MS);
+    watchdogTimer.unref?.();
+}
+
 // --- Startup orphan sweep ---
 // Probe every port in the port pool. Kill orphans by PID (not by image name).
 
