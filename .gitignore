@@ -37,4 +37,10 @@ llama.cpp/
 
 # Machine-specific config (copy config.example.json)
 config.json
+models.json.bak-*
+config.json.bak-*
+src/*.bak-*
+
+# Scratch
+_test_override.mjs
 
