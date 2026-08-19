@@ -30,3 +30,7 @@ desktop.ini
 # Downloaded llama-server builds (fetch-build.js)
 builds/
 
+
+# Local llama.cpp checkout (reference only, builds live in llama-cpp-builds repo)
+llama.cpp/
+
