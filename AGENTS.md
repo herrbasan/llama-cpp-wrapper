@@ -8,7 +8,7 @@ A zero-dependency Node.js process manager for `llama-server`. It presents itself
 
 ## Why It Exists
 
-The v1 (`llama-cpp-gateway`) had two conflicting architectures bolted together: a header-driven proxy and an adapter layer. The adapter duplicated what `llama-server` already does natively (OpenAI API). Embedding degradation was never root-caused because direct testing was impossible (custom header protocol). See `docs/local-llama-embedding-degradation.md` for the historical investigation.
+The v1 (`llama-cpp-gateway`) had two conflicting architectures bolted together: a header-driven proxy and an adapter layer. The adapter duplicated what `llama-server` already does natively (OpenAI API). Embedding degradation was never root-caused because direct testing was impossible (custom header protocol). See `docs/_Archive/local-llama-embedding-degradation.md` for the historical investigation.
 
 V2 eliminates the adapter entirely. The manager IS the OpenAI API.
 
@@ -74,7 +74,7 @@ Keys follow the LM Studio folder layout (`modelsDir/publisher/model/file.gguf`):
 
 ## Config
 
-All defaults in `config.json`. Per-model overrides in optional `models.json` (keyed by canonical model key). See `docs/dev-plan-v2.md` for the full config schema.
+All defaults in `config.json`. Per-model overrides in optional `models.json` (keyed by canonical model key). See `documentation/llama-cpp-wrapper-api.md` for the full config schema.
 
 **VRAM management:** `maxPerCategory: { chat: 1, embedding: 1 }` in `config.json`. Chat and embedding slots are independent — requesting a different chat model auto-unloads the previous one (drain + kill), embedding stays untouched. This prevents VRAM overfill on single-GPU systems.
 

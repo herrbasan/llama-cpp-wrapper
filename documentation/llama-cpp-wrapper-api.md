@@ -71,8 +71,12 @@ All required fields crash at startup if missing. No fallback defaults.
 | `port` | number | Manager listen port (client-facing) |
 | `serverPort` | number | Start of the port pool for llama-server instances |
 | `maxPerCategory` | object | `{ "chat": N, "embedding": N }` — max concurrent instances per category |
-| `llamaServerPath` | string | Path to `llama-server.exe` (relative to project root or absolute) |
+| `llamaBuild` | string | Release tag from [llama-cpp-builds](https://github.com/herrbasan/llama-cpp-builds/releases) (e.g. `"b10499"`). Resolved to `builds/<tag>/llama-server.exe`; startup crashes with fetch instructions if missing |
 | `modelsDir` | string | Root directory for model discovery (LM Studio folder layout) |
+
+Exactly one of `llamaBuild` or the legacy `llamaServerPath` (direct exe path, deprecated — logs a warning) must be set.
+
+Fetching a build: `npm run fetch-build -- <tag>` downloads the release zip, verifies every file against its sha256 manifest, and extracts to `builds/<tag>/`. Idempotent — re-running verifies the local copy and exits. Old tags stay cached; switching versions is a config change + restart.
 
 ### config.json — Optional Defaults
 
@@ -126,7 +130,7 @@ Optional file at project root. Keys are canonical model keys (case-insensitive m
 | `ubatchSize` | number | from config | Micro batch size |
 | `embedding` | boolean | `false` | Enable embedding mode (`--embedding` flag) |
 | `pooling` | string \| null | `null` | Pooling type for embeddings (`--pooling`, e.g. `"mean"`, `"cls"`) |
-| `mlock` | boolean | `false` | Lock memory (`--mlock`) |
+| `mlock` | boolean | `false` | Lock memory (`--load-mode mlock`; requires build ≥ b10499) |
 | `mmprojPath` | string \| null | `null` | Vision projector path (auto-detected if `.mmproj` file exists alongside model) |
 | `chatTemplateFile` | string \| null | `null` | Path to Jinja chat template (relative to project root). Enables `--jinja --chat-template-file` |
 
@@ -368,7 +372,7 @@ Detailed status of all instances and effective configuration.
     "port": 4080,
     "maxPerCategory": { "chat": 1, "embedding": 1 },
     "modelsDir": "D:\\# AI Stuff\\LMStudio_Models",
-    "llamaServerPath": "D:\\DEV\\llama-cpp-wrapper\\dist\\universal\\llama-server.exe"
+    "llamaBuild": "b10499"
   }
 }
 ```

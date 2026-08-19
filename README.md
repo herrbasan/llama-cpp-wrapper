@@ -15,7 +15,7 @@ A zero-dependency Node.js process manager for [`llama-server`](https://github.co
 ### Prerequisites
 
 - Node.js 18+ (uses built-in `fetch`)
-- A built `llama-server` binary (see `build/build.ps1`)
+- A `llama-server` build from [llama-cpp-builds releases](https://github.com/herrbasan/llama-cpp-builds/releases) (universal Windows: CUDA + Vulkan + CPU)
 - GGUF model files in a directory (LM Studio folder layout supported)
 
 ### Configuration
@@ -27,11 +27,20 @@ Edit `config.json`:
   "host": "0.0.0.0",
   "port": 4080,
   "serverPort": 4081,
-  "maxInstances": 4,
-  "llamaServerPath": "dist/universal/llama-server.exe",
+  "maxPerCategory": { "chat": 1, "embedding": 1 },
+  "llamaBuild": "b10499",
   "modelsDir": "D:\\AI\\Models"
 }
 ```
+
+`llamaBuild` pins a release tag from llama-cpp-builds. Download it once:
+
+```bash
+npm run fetch-build -- b10499   # downloads + hash-verifies into builds/b10499/
+npm start
+```
+
+Startup resolves `builds/<tag>/llama-server.exe` and crashes with clear instructions if it's missing. Rollback = point `llamaBuild` at a previously fetched tag + restart. Legacy `llamaServerPath` (direct exe path) still works with a deprecation warning.
 
 Optional per-model overrides in `models.json`:
 
@@ -110,5 +119,6 @@ The smoke test covers: health check, model listing, chat completion, embedding c
 
 ## Documentation
 
-- `docs/dev-plan-v2.md` — Full development plan with architecture decisions
+- `documentation/llama-cpp-wrapper-api.md` — Full API and configuration reference
+- `docs/_Archive/` — Historical dev plans and investigations (v1 era)
 - `AGENTS.md` — LLM briefing for code generation
