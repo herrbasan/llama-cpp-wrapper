@@ -20,7 +20,7 @@ A zero-dependency Node.js process manager for [`llama-server`](https://github.co
 
 ### Configuration
 
-Edit `config.json`:
+Copy `config.example.json` to `config.json` (machine-specific, not committed) and edit:
 
 ```json
 {

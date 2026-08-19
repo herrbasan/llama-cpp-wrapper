@@ -34,3 +34,7 @@ builds/
 # Local llama.cpp checkout (reference only, builds live in llama-cpp-builds repo)
 llama.cpp/
 
+
+# Machine-specific config (copy config.example.json)
+config.json
+
