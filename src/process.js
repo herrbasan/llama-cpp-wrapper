@@ -117,9 +117,9 @@ function buildArgs(ggufPath, options, port) {
         args.push('--mmproj', options.mmprojPath);
     }
 
-    // Memory lock
+    // Memory lock (--load-mode since b10499; plain --mlock is deprecated)
     if (options.mlock) {
-        args.push('--mlock');
+        args.push('--load-mode', 'mlock');
     }
 
     // Chat template override (for models with outdated embedded templates)

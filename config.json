@@ -4,7 +4,7 @@
   "serverPort": 4081,
   "maxPerCategory": { "chat": 1, "embedding": 1 },
 
-  "llamaServerPath": "dist/universal/llama-server.exe",
+  "llamaBuild": "b9986",
   "modelsDir": "E:\\LM Studio Models",
 
   "defaultCtxSize": 8192,

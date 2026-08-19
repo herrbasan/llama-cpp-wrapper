@@ -26,3 +26,7 @@ state.json
 # OS
 Thumbs.db
 desktop.ini
+
+# Downloaded llama-server builds (fetch-build.js)
+builds/
+

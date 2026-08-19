@@ -6,6 +6,7 @@
   "description": "Zero-dependency Node.js manager for llama-server. Thin OpenAI-compatible proxy with process lifecycle.",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node tests/smoke.js"
+    "test": "node tests/smoke.js",
+    "fetch-build": "node bin/fetch-build.js"
   }
 }

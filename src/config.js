@@ -28,11 +28,28 @@ try {
 }
 
 // --- Required fields — missing any is a fatal startup error ---
-const required = ['host', 'port', 'serverPort', 'maxPerCategory', 'llamaServerPath', 'modelsDir'];
+const required = ['host', 'port', 'serverPort', 'maxPerCategory', 'modelsDir'];
 for (const field of required) {
     if (cfg[field] === undefined || cfg[field] === null) {
         throw new Error(`config.js: Required field "${field}" missing from config.json`);
     }
+}
+
+// --- Binary resolution: llamaBuild (release tag) or legacy llamaServerPath ---
+let llamaServerPath;
+if (cfg.llamaBuild) {
+    llamaServerPath = path.resolve(projectRoot, 'builds', cfg.llamaBuild, 'llama-server.exe');
+    if (!fs.existsSync(llamaServerPath)) {
+        throw new Error(`config.js: llamaBuild "${cfg.llamaBuild}" not found at ${llamaServerPath}\nRun: node bin/fetch-build.js ${cfg.llamaBuild}`);
+    }
+} else if (cfg.llamaServerPath) {
+    llamaServerPath = path.resolve(projectRoot, cfg.llamaServerPath);
+    if (!fs.existsSync(llamaServerPath)) {
+        throw new Error(`config.js: llamaServerPath not found: ${llamaServerPath}`);
+    }
+    console.warn('config.js: WARNING — "llamaServerPath" is deprecated, use "llamaBuild" (release tag) instead');
+} else {
+    throw new Error('config.js: neither "llamaBuild" nor "llamaServerPath" set in config.json');
 }
 
 // --- Export resolved config ---
@@ -44,7 +61,8 @@ export default {
     maxPerCategory: cfg.maxPerCategory,
 
     // Binary + models
-    llamaServerPath: path.resolve(projectRoot, cfg.llamaServerPath),
+    llamaBuild: cfg.llamaBuild ?? null,
+    llamaServerPath,
     modelsDir: cfg.modelsDir,
 
     // Defaults (overridable per-model via models.json)
@@ -62,7 +80,7 @@ export default {
     drainTimeoutMs: cfg.drainTimeoutMs ?? 30000,
     modelScanTtlMs: cfg.modelScanTtlMs ?? 60000,
 
-    // Total request timeout � kills stuck slots even after first byte arrives
+    // Total request timeout � kills stuck slots even after first byte arrives
     requestTimeoutMs: cfg.requestTimeoutMs ?? 120000,
 
     // Paths

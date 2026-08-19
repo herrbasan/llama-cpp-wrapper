@@ -80,21 +80,30 @@ All defaults in `config.json`. Per-model overrides in optional `models.json` (ke
 
 **Chat template override:** Some community-quant GGUF files have outdated chat templates baked in. Add `"chatTemplateFile": "templates/gemma4.jinja"` to the model's `models.json` entry to override at spawn time via `--jinja --chat-template-file`. Without this, multi-turn conversations may produce empty responses on affected models.
 
-## Build
+## Binaries (llama-cpp-builds)
 
-`llama.cpp` is a git submodule. Build via `build/build.ps1` (Phase 2). The built binary goes to `dist/universal/llama-server.exe`; `config.json` → `llamaServerPath` points there.
+Prebuilt universal binaries (CUDA + Vulkan + CPU variants) come from the
+[llama-cpp-builds](https://github.com/herrbasan/llama-cpp-builds) releases.
+`config.json → llamaBuild` pins the release tag (e.g. `"b9986"`); startup resolves it to
+`builds/<tag>/llama-server.exe` and **crashes with a clear message if missing** — run
+`npm run fetch-build -- <tag>` to download + hash-verify into `builds/<tag>/`.
+Rollback = change `llamaBuild` back + restart (old versions stay cached in `builds/`).
 
-**Updating llama.cpp:** Run `.\build\build.ps1 -Update` to fetch the latest release tag, or `-Tag bXXXX` to pin a specific version. The script handles fetch, checkout, submodule update, build, and post-build verification automatically.
+New builds are produced in the llama-cpp-builds repo (`build.ps1 -Tag bXXXX -Publish`),
+never in this repo. Legacy `llamaServerPath` (direct exe path) still works but logs a
+deprecation warning.
 
-**Mandatory: Clean build directories before rebuilding.** Stale `.ninja_deps` and locked `.obj` files from interrupted builds cause `C1083: Cannot open compiler generated file` and `ninja: error: failed recompaction: Permission denied` errors. Before any rebuild (especially after an interrupted build):
-1. Kill any lingering build processes: `Get-Process -Name 'ninja','cmake','cl','nvcc','link' -ErrorAction SilentlyContinue | Stop-Process -Force`
-2. Delete the build output dir: `Remove-Item -Recurse -Force "build\out\$Backend"`
-3. Clean stale nvcc temp files: `Remove-Item -Path "$env:TEMP\tmpxft_*" -Recurse -Force` (leftover files cause silent `code=255` failures during parallel CUDA compilation)
-4. Only then run the build script
+**Critical: spawn cwd must be the binary's directory.** `GGML_BACKEND_DL=ON` builds use
+`LoadLibrary` to dynamically load `ggml-cuda.dll`/`ggml-vulkan.dll`. This searches CWD,
+not the exe's directory. The manager sets `cwd: path.dirname(config.llamaServerPath)`
+when spawning llama-server. Without this, CUDA silently falls back to CPU. The release
+zips are flat (exe + DLLs together) for exactly this reason.
 
-The build script's default (non-incremental) mode does steps 2-3 automatically. Use `-Incremental` only when the previous build completed successfully.
-
-**Critical: spawn cwd must be the binary's directory.** `GGML_BACKEND_DL=ON` builds use `LoadLibrary` to dynamically load `ggml-cuda.dll`. This searches CWD, not the exe's directory. The manager sets `cwd: path.dirname(config.llamaServerPath)` when spawning llama-server. Without this, CUDA silently falls back to CPU.
+**`--load-mode`:** since b10499, `--mlock`/`--mmap`/`--direct-io` are deprecated in favor
+of `--load-mode auto|mmap|mlock|mmap+mlock|direct-io` (default `auto`). The wrapper passes
+`--load-mode mlock` when a model sets `mlock: true` in models.json. Do not run builds
+older than b10499's flag set assumptions — b9986 does not support `--load-mode`; only
+enable `mlock` on models when `llamaBuild >= b10499`.
 
 ## Embedding Acceptance Gates
 
