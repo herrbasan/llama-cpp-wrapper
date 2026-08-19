@@ -1,6 +1,0 @@
-[submodule "src/modules/nLogger"]
-	path = src/modules/nLogger
-	url = https://github.com/herrbasan/nLogger.git
-[submodule "llama.cpp"]
-	path = llama.cpp
-	url = https://github.com/ggml-org/llama.cpp.git
