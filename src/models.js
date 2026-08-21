@@ -224,18 +224,21 @@ async function scanDir(dirPath, relativePath, results) {
         return; // Directory doesn't exist or not accessible
     }
 
-    // Find .gguf files in this directory
+    // Projector files: .mmproj, mmproj-*.gguf, or *vision*.gguf (publisher naming varies)
+    const isProjector = (name) => {
+        const n = name.toLowerCase();
+        return n.endsWith('.mmproj') ||
+            (n.startsWith('mmproj') && n.endsWith('.gguf')) ||
+            (n.includes('vision') && n.endsWith('.gguf'));
+    };
+
+    // Find .gguf files in this directory (excluding vision projectors)
     const ggufFiles = entries.filter(e =>
-        e.isFile() && e.name.toLowerCase().endsWith('.gguf') &&
-        !e.name.toLowerCase().startsWith('mmproj')
+        e.isFile() && e.name.toLowerCase().endsWith('.gguf') && !isProjector(e.name)
     );
 
-    // Find .mmproj files
-    const mmprojFiles = entries.filter(e =>
-        e.isFile() &&
-        (e.name.toLowerCase().endsWith('.mmproj') ||
-            (e.name.toLowerCase().startsWith('mmproj') && e.name.toLowerCase().endsWith('.gguf')))
-    );
+    // Find projector files
+    const mmprojFiles = entries.filter(e => e.isFile() && isProjector(e.name));
 
     if (ggufFiles.length > 0) {
         const mmprojPath = mmprojFiles.length > 0
@@ -392,11 +395,13 @@ export async function resolveModel(modelKey) {
 async function findMmproj(dir) {
     try {
         const entries = await fs.readdir(dir, { withFileTypes: true });
-        const mmproj = entries.find(e =>
-            e.isFile() &&
-            (e.name.toLowerCase().endsWith('.mmproj') ||
-                (e.name.toLowerCase().startsWith('mmproj') && e.name.toLowerCase().endsWith('.gguf')))
-        );
+        const mmproj = entries.find(e => {
+            if (!e.isFile()) return false;
+            const n = e.name.toLowerCase();
+            return n.endsWith('.mmproj') ||
+                (n.startsWith('mmproj') && n.endsWith('.gguf')) ||
+                (n.includes('vision') && n.endsWith('.gguf'));
+        });
         return mmproj ? path.join(dir, mmproj.name) : null;
     } catch {
         return null;

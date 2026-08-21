@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node tests/smoke.js",
+    "init": "node bin/init.js",
     "fetch-build": "node bin/fetch-build.js"
   }
 }

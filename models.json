@@ -51,5 +51,11 @@
     "ctxSize": 128000,
     "gpuLayers": 99,
     "flashAttention": true
+  },
+  "JonathanColetti/Qwen3.8-27B-Uncensored-GGUF": {
+    "ctxSize": 128000,
+    "gpuLayers": 99,
+    "flashAttention": true,
+    "mmprojPath": "T:\\Stuff\\LMStudio\\JonathanColetti\\Qwen3.8-27B-Uncensored-GGUF\\Qwen3.8-27B-Uncensored-vision-f16.gguf"
   }
 }
