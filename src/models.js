@@ -441,6 +441,7 @@ export async function getModelConfig(modelKey) {
             pooling: override.pooling ?? null,
             mlock: override.mlock ?? false,
             mmprojPath: override.mmprojPath ?? null,
+            jinja: override.jinja ?? false,
             chatTemplateFile: override.chatTemplateFile ?? null,
         };
     }
@@ -458,6 +459,7 @@ export async function getModelConfig(modelKey) {
         pooling: null,
         mlock: false,
         mmprojPath: null,
+        jinja: false,
         chatTemplateFile: null,
     };
 }

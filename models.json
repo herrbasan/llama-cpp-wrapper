@@ -28,13 +28,13 @@
     "ctxSize": 128000,
     "gpuLayers": 99,
     "flashAttention": true,
-    "chatTemplateFile": "templates/gemma4.jinja"
+    "jinja": true
   },
   "HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive": {
     "ctxSize": 128000,
     "gpuLayers": 99,
     "flashAttention": true,
-    "chatTemplateFile": "templates/gemma4.jinja"
+    "jinja": true
   },
   "HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive": {
     "ctxSize": 128000,
@@ -45,7 +45,7 @@
     "ctxSize": 128000,
     "gpuLayers": 99,
     "flashAttention": true,
-    "chatTemplateFile": "templates/gemma4.jinja"
+    "jinja": true
   },
   "llmfan46/Qwen3.6-27B-uncensored-heretic-v2-GGUF": {
     "ctxSize": 128000,

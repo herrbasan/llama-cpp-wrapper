@@ -122,9 +122,15 @@ function buildArgs(ggufPath, options, port) {
         args.push('--load-mode', 'mlock');
     }
 
-    // Chat template override (for models with outdated embedded templates)
+    // Chat template: models use their embedded template by default. Set
+    // `jinja: true` in models.json when the embedded template needs the Jinja
+    // engine (Gemma 4's macro-heavy template). `chatTemplateFile` overrides
+    // the embedded template entirely (models that ship a broken template).
+    if (options.jinja || options.chatTemplateFile) {
+        args.push('--jinja');
+    }
     if (options.chatTemplateFile) {
-        args.push('--jinja', '--chat-template-file', options.chatTemplateFile);
+        args.push('--chat-template-file', options.chatTemplateFile);
     }
 
     return args;

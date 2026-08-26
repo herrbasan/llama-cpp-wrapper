@@ -78,7 +78,7 @@ All defaults in `config.json`. Per-model overrides in optional `models.json` (ke
 
 **VRAM management:** `maxPerCategory: { chat: 1, embedding: 1 }` in `config.json`. Chat and embedding slots are independent — requesting a different chat model auto-unloads the previous one (drain + kill), embedding stays untouched. This prevents VRAM overfill on single-GPU systems.
 
-**Chat template override:** Some community-quant GGUF files have outdated chat templates baked in. Add `"chatTemplateFile": "templates/gemma4.jinja"` to the model's `models.json` entry to override at spawn time via `--jinja --chat-template-file`. Without this, multi-turn conversations may produce empty responses on affected models.
+**Chat templates:** Models use their own embedded chat template by default. Set `"jinja": true` in a `models.json` entry when the embedded template needs the Jinja engine (Gemma 4's macro-heavy template requires it). Add `"chatTemplateFile": "templates/<model>.jinja"` only when a model genuinely ships a broken template — it overrides the embedded template at spawn via `--chat-template-file`. Do not add a hand-written template just to "fix" tool calling; a template that omits the model's tool sections breaks tool calling (the 2026-08-26 Gemma incident — the embedded template was already correct and tool-capable).
 
 ## Binaries (llama-cpp-builds)
 
