@@ -33,7 +33,7 @@
   - [Shutdown Behavior](#shutdown-behavior)
 - [Hot Path Contract](#hot-path-contract)
 - [GGUF Metadata Extraction](#gguf-metadata-extraction)
-- [Chat Template Override](#chat-template-override)
+- [Chat Templates](#chat-templates)
 - [Vision / Multimodal Support](#vision--multimodal-support)
 - [Running](#running)
 
@@ -112,7 +112,7 @@ Optional file at project root. Keys are canonical model keys (case-insensitive m
     "ctxSize": 128000,
     "gpuLayers": 99,
     "flashAttention": true,
-    "chatTemplateFile": "templates/gemma4.jinja"
+    "jinja": true
   }
 }
 ```
@@ -132,7 +132,8 @@ Optional file at project root. Keys are canonical model keys (case-insensitive m
 | `pooling` | string \| null | `null` | Pooling type for embeddings (`--pooling`, e.g. `"mean"`, `"cls"`) |
 | `mlock` | boolean | `false` | Lock memory (`--load-mode mlock`; requires build ≥ b10499) |
 | `mmprojPath` | string \| null | `null` | Vision projector path (auto-detected if `.mmproj` file exists alongside model) |
-| `chatTemplateFile` | string \| null | `null` | Path to Jinja chat template (relative to project root). Enables `--jinja --chat-template-file` |
+| `jinja` | boolean | `false` | Render the embedded chat template with the Jinja engine (`--jinja`). Required for Gemma 4's macro-heavy template |
+| `chatTemplateFile` | string \| null | `null` | Override the embedded template with a file (relative to project root). Implies `--jinja --chat-template-file` |
 
 ---
 
@@ -363,7 +364,8 @@ Detailed status of all instances and effective configuration.
         "pooling": null,
         "mlock": false,
         "mmprojPath": null,
-        "chatTemplateFile": "templates/gemma4.jinja"
+        "jinja": true,
+        "chatTemplateFile": null
       }
     }
   ],
@@ -526,21 +528,22 @@ The parser handles all GGUF value types (UINT8 through FLOAT64, STRING, ARRAY) w
 
 ---
 
-## Chat Template Override
+## Chat Templates
 
-Some community-quant GGUF files have outdated chat templates baked in, causing empty responses or malformed multi-turn conversations. The `chatTemplateFile` override in `models.json` replaces the embedded template at spawn time:
+Models use their own embedded chat template by default. Two `models.json` flags control template handling:
+
+- **`jinja: true`** — render the embedded template with the Jinja engine (`--jinja`). Gemma 4's macro-heavy embedded template requires this.
+- **`chatTemplateFile`** — replace the embedded template with a file (for models that genuinely ship a broken template). Implies `--jinja --chat-template-file`.
 
 ```json
 {
   "HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive": {
-    "chatTemplateFile": "templates/gemma4.jinja"
+    "jinja": true
   }
 }
 ```
 
-This adds `--jinja --chat-template-file <path>` to the llama-server CLI args. The path is resolved relative to the project root.
-
-The project ships with `templates/gemma4.jinja` for Gemma-4 models that need it.
+Do not add a hand-written `chatTemplateFile` just to "fix" tool calling — a template that omits the model's tool sections breaks tool calling.
 
 ---
 

@@ -45,6 +45,8 @@ llama-server (port 4081+) — native OpenAI API
 | `src/models.js` | Model discovery, resolution, GGUF metadata | LM Studio key convention (`publisher/model@quant`) |
 | `src/process.js` | Process lifecycle: spawn, health, kill | Windows-accurate shutdown (`taskkill /T /F`), stderr ring buffer |
 | `src/server.js` | HTTP server, routing, raw proxy | ≤200 lines target, zero payload transformation |
+| `bin/init.js` | `npm run init -- <modelsDir>` — fetch build + create config.json | |
+| `bin/fetch-build.js` | Download + hash-verify a llama-cpp-builds release | Tag optional — latest release via GitHub API |
 | `src/modules/nLogger/` | Git submodule — rolling JSON Lines logger | Process Manager reads these logs |
 
 ## Endpoint Scope
@@ -107,7 +109,7 @@ enable `mlock` on models when `llamaBuild >= b10499`.
 
 ## Embedding Acceptance Gates
 
-Embeddings are not "done" until all five pass (see dev-plan-v2.md):
+Embeddings are not "done" until all five pass (see docs/_Archive/dev-plan-v2.md):
 1. **Determinism** — same text 20× → bit-identical
 2. **Dimension** — matches GGUF metadata
 3. **Pooling** — verified at spawn, logged
