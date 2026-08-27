@@ -257,6 +257,11 @@ async function handleInference(req, res) {
         modelConfig.mmprojPath = resolved.mmprojPath;
     }
 
+    // Override mtpPath from resolution if auto-detected
+    if (resolved.mtpPath && !modelConfig.mtpPath) {
+        modelConfig.mtpPath = resolved.mtpPath;
+    }
+
     // Resolve chatTemplateFile relative to project root
     if (modelConfig.chatTemplateFile) {
         modelConfig.chatTemplateFile = path.join(config.projectRoot, modelConfig.chatTemplateFile);

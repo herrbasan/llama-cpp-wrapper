@@ -232,17 +232,28 @@ async function scanDir(dirPath, relativePath, results) {
             (n.includes('vision') && n.endsWith('.gguf'));
     };
 
-    // Find .gguf files in this directory (excluding vision projectors)
+    // MTP draft module (multi-token prediction, e.g. "mtp-gemma-4-12B-it.gguf").
+    // Auxiliary speculative-decoding file — not a quant variant of the model.
+    const isMtpDraft = (n) => {
+        return n.endsWith('.gguf') && (n.startsWith('mtp') || n.includes('-mtp-'));
+    };
+
+    // Find .gguf files in this directory (excluding vision projectors and MTP drafts)
     const ggufFiles = entries.filter(e =>
-        e.isFile() && e.name.toLowerCase().endsWith('.gguf') && !isProjector(e.name)
+        e.isFile() && e.name.toLowerCase().endsWith('.gguf') &&
+        !isProjector(e.name) && !isMtpDraft(e.name)
     );
 
-    // Find projector files
+    // Find projector and MTP draft files
     const mmprojFiles = entries.filter(e => e.isFile() && isProjector(e.name));
+    const mtpFiles = entries.filter(e => e.isFile() && isMtpDraft(e.name));
 
     if (ggufFiles.length > 0) {
         const mmprojPath = mmprojFiles.length > 0
             ? path.join(dirPath, mmprojFiles[0].name)
+            : null;
+        const mtpPath = mtpFiles.length > 0
+            ? path.join(dirPath, mtpFiles[0].name)
             : null;
 
         // Sort gguf files by size descending (largest first = default quant)
@@ -266,6 +277,7 @@ async function scanDir(dirPath, relativePath, results) {
             name: meta.general_name || path.basename(relativePath || dirPath),
             dir: dirPath,
             mmprojPath,
+            mtpPath,
             quants: ggufsWithStats.map(g => ({
                 filename: g.entry.name,
                 path: g.fullPath,
@@ -324,7 +336,8 @@ export async function resolveModel(modelKey) {
         }
         const modelDir = path.dirname(ggufPath);
         const mmprojPath = await findMmproj(modelDir);
-        result = { ggufPath, mmprojPath, quantTag: extractQuantTag(path.basename(ggufPath)) };
+        const mtpPath = await findMtpDraft(modelDir);
+        result = { ggufPath, mmprojPath, mtpPath, quantTag: extractQuantTag(path.basename(ggufPath)) };
         resolveCache.set(cacheKey, result);
         return result;
     }
@@ -383,6 +396,7 @@ export async function resolveModel(modelKey) {
     result = {
         ggufPath: selectedQuant.path,
         mmprojPath: model.mmprojPath,
+        mtpPath: model.mtpPath,
         quantTag: selectedQuant.quantTag,
         modelKey: model.key,
         metadata: model.metadata,
@@ -403,6 +417,20 @@ async function findMmproj(dir) {
                 (n.includes('vision') && n.endsWith('.gguf'));
         });
         return mmproj ? path.join(dir, mmproj.name) : null;
+    } catch {
+        return null;
+    }
+}
+
+async function findMtpDraft(dir) {
+    try {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        const mtp = entries.find(e => {
+            if (!e.isFile()) return false;
+            const n = e.name.toLowerCase();
+            return n.endsWith('.gguf') && (n.startsWith('mtp') || n.includes('-mtp-'));
+        });
+        return mtp ? path.join(dir, mtp.name) : null;
     } catch {
         return null;
     }
@@ -441,6 +469,8 @@ export async function getModelConfig(modelKey) {
             pooling: override.pooling ?? null,
             mlock: override.mlock ?? false,
             mmprojPath: override.mmprojPath ?? null,
+            mtpPath: override.mtpPath ?? null,
+            specDraftNMax: override.specDraftNMax ?? 4,
             jinja: override.jinja ?? false,
             chatTemplateFile: override.chatTemplateFile ?? null,
         };
@@ -459,6 +489,8 @@ export async function getModelConfig(modelKey) {
         pooling: null,
         mlock: false,
         mmprojPath: null,
+        mtpPath: null,
+        specDraftNMax: 4,
         jinja: false,
         chatTemplateFile: null,
     };

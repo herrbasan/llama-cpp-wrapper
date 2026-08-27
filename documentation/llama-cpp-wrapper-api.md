@@ -132,6 +132,8 @@ Optional file at project root. Keys are canonical model keys (case-insensitive m
 | `pooling` | string \| null | `null` | Pooling type for embeddings (`--pooling`, e.g. `"mean"`, `"cls"`) |
 | `mlock` | boolean | `false` | Lock memory (`--load-mode mlock`; requires build ≥ b10499) |
 | `mmprojPath` | string \| null | `null` | Vision projector path (auto-detected if `.mmproj` file exists alongside model) |
+| `mtpPath` | string \| null | `null` | MTP draft head path for speculative decoding (`--spec-type draft-mtp --spec-draft-model`; auto-detected if `mtp*.gguf` / `*-mtp-*.gguf` file exists alongside model). Requires build ≥ b10499 (Gemma4 MTP, upstream #23398) |
+| `specDraftNMax` | number | `4` | Max draft tokens per step when MTP is active (`--spec-draft-n-max`) |
 | `jinja` | boolean | `false` | Render the embedded chat template with the Jinja engine (`--jinja`). Required for Gemma 4's macro-heavy template |
 | `chatTemplateFile` | string \| null | `null` | Override the embedded template with a file (relative to project root). Implies `--jinja --chat-template-file` |
 
@@ -552,6 +554,19 @@ Do not add a hand-written `chatTemplateFile` just to "fix" tool calling — a te
 The manager auto-detects `.mmproj` (vision projector) files during model discovery. If a `.mmproj` file exists in the same directory as the model `.gguf`, its path is automatically passed to llama-server via `--mmproj`.
 
 The `mmprojPath` can also be set explicitly in `models.json` to override auto-detection.
+
+---
+
+## MTP Speculative Decoding
+
+Models that ship an MTP (multi-token prediction) draft head get automatic speculative
+decoding. Discovery: any `mtp*.gguf` / `*-mtp-*.gguf` file in the model directory is
+excluded from quant variants and wired via `--spec-type draft-mtp --spec-draft-model`.
+Requires build ≥ b10499 (Gemma4 MTP landed upstream 2026-06-07, #23398). Dense models
+see ~2x tok/s; output is probabilistically identical (verification keeps quality).
+
+The `mtpPath` can also be set explicitly in `models.json` to override auto-detection;
+`specDraftNMax` (default 4) controls draft length.
 
 ---
 

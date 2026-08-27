@@ -1,0 +1,12 @@
+{
+  "model": "local-model",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Explain in detail how a reverse proxy works, including connection handling, load balancing, and TLS termination. Write at least 400 words."
+    }
+  ],
+  "max_tokens": 512,
+  "temperature": 0,
+  "stream": false
+}

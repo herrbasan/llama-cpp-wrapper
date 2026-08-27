@@ -78,9 +78,11 @@ Keys follow the LM Studio folder layout (`modelsDir/publisher/model/file.gguf`):
 
 All defaults in `config.json`. Per-model overrides in optional `models.json` (keyed by canonical model key). See `documentation/llama-cpp-wrapper-api.md` for the full config schema.
 
-**VRAM management:** `maxPerCategory: { chat: 1, embedding: 1 }` in `config.json`. Chat and embedding slots are independent — requesting a different chat model auto-unloads the previous one (drain + kill), embedding stays untouched. This prevents VRAM overfill on single-GPU systems.
+**VRAM management:** `maxPerCategory: { chat: 1, embedding: 0 }` in `config.json` (Badkid: TTS + STT own the remaining VRAM, no local embedding slot). Chat slot: requesting a different chat model auto-unloads the previous one (drain + kill). Embedding requests fail loudly (`Category "embedding" limit reached (0)`). This prevents VRAM overfill on single-GPU systems.
 
 **Chat templates:** Models use their own embedded chat template by default. Set `"jinja": true` in a `models.json` entry when the embedded template needs the Jinja engine (Gemma 4's macro-heavy template requires it). Add `"chatTemplateFile": "templates/<model>.jinja"` only when a model genuinely ships a broken template — it overrides the embedded template at spawn via `--chat-template-file`. Do not add a hand-written template just to "fix" tool calling; a template that omits the model's tool sections breaks tool calling (the 2026-08-26 Gemma incident — the embedded template was already correct and tool-capable).
+
+**MTP speculative decoding:** Models shipping an MTP draft head (`mtp*.gguf` / `*-mtp-*.gguf` in the model dir) get automatic speculative decoding (`--spec-type draft-mtp --spec-draft-model --spec-draft-n-max N`, default 4). The draft file is excluded from quant variants. Requires `llamaBuild >= b10499` (Gemma4 MTP, upstream #23398). Dense models: ~2x tok/s, quality unchanged.
 
 ## Binaries (llama-cpp-builds)
 

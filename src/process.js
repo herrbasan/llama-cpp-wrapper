@@ -117,6 +117,14 @@ function buildArgs(ggufPath, options, port) {
         args.push('--mmproj', options.mmprojPath);
     }
 
+    // MTP speculative decoding (multi-token prediction draft head).
+    // Requires build >= b10499 (Gemma4 MTP landed upstream 2026-06-07, #23398).
+    if (options.mtpPath) {
+        args.push('--spec-type', 'draft-mtp');
+        args.push('--spec-draft-model', options.mtpPath);
+        args.push('--spec-draft-n-max', options.specDraftNMax.toString());
+    }
+
     // Memory lock (--load-mode since b10499; plain --mlock is deprecated)
     if (options.mlock) {
         args.push('--load-mode', 'mlock');
@@ -150,6 +158,8 @@ function configsMatch(a, b) {
         a.pooling === b.pooling &&
         a.mlock === b.mlock &&
         a.mmprojPath === b.mmprojPath &&
+        a.mtpPath === b.mtpPath &&
+        a.specDraftNMax === b.specDraftNMax &&
         a.chatTemplateFile === b.chatTemplateFile;
 }
 

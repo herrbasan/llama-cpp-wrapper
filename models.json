@@ -36,6 +36,13 @@
     "flashAttention": true,
     "jinja": true
   },
+  "HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced": {
+    "ctxSize": 262144,
+    "gpuLayers": 99,
+    "flashAttention": true,
+    "jinja": true,
+    "specDraftNMax": 4
+  },
   "HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive": {
     "ctxSize": 128000,
     "gpuLayers": 99,
