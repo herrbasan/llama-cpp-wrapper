@@ -42,8 +42,8 @@ llama-server (port 4081+) — native OpenAI API
 | File | Responsibility | Key constraint |
 |------|---------------|----------------|
 | `src/config.js` | Load + validate config.json | Required fields crash at startup if missing |
-| `src/models.js` | Model discovery, resolution, GGUF metadata | LM Studio key convention (`publisher/model@quant`) |
-| `src/process.js` | Process lifecycle: spawn, health, kill | Windows-accurate shutdown (`taskkill /T /F`), stderr ring buffer |
+| `src/models.js` | Model discovery, resolution, GGUF metadata, pinned registry | LM Studio key convention (`publisher/model@quant`); `models.json` loaded once at startup, fail-fast |
+| `src/process.js` | Process lifecycle: spawn, health, kill, pinned preload | One OS process per model; on Windows the spawn cwd must be the binary's directory |
 | `src/server.js` | HTTP server, routing, raw proxy | ≤200 lines target, zero payload transformation |
 | `bin/init.js` | `npm run init -- <modelsDir>` — fetch build + create config.json | |
 | `bin/fetch-build.js` | Download + hash-verify a llama-cpp-builds release | Tag optional — latest release via GitHub API |
@@ -79,6 +79,14 @@ Keys follow the LM Studio folder layout (`modelsDir/publisher/model/file.gguf`):
 All defaults in `config.json`. Per-model overrides in optional `models.json` (keyed by canonical model key). See `documentation/llama-cpp-wrapper-api.md` for the full config schema.
 
 **VRAM management:** `maxPerCategory: { chat: 1, embedding: 0 }` in `config.json` (Badkid: TTS + STT own the remaining VRAM, no local embedding slot). Chat slot: requesting a different chat model auto-unloads the previous one (drain + kill). Embedding requests fail loudly (`Category "embedding" limit reached (0)`). This prevents VRAM overfill on single-GPU systems.
+
+**Resident (pinned) models:** `"pinned": true` on a `models.json` entry makes that model resident. It is a **separate `llama-server` process**, preloaded at startup (the wrapper exits if it fails to load), exempt from `maxPerCategory`, never an eviction candidate, and holds one reserved port on top of the per-category pool. `maxPerCategory.chat: 1` therefore still means "one *evictable* chat model that swaps 1:1" — a pinned fast-path model runs alongside it without lifting the VRAM guard. Adding one is a single `models.json` entry:
+
+```json
+"<publisher>/<model>": { "pinned": true, "gpuLayers": 0, "threads": 2, "ctxSize": 4096, "flashAttention": false }
+```
+
+`gpuLayers: 0` (CPU) is deliberate for a small classifier: its cost is fixed overhead, and CPU keeps it off the GPU lanes the big model and the STT engine compete for. `reasoning: "off"` is **required** for a classifier — with a small `max_tokens` a thinking model spends the whole budget inside the thinking block and `content` comes back empty (measured on Qwen3-0.6B, 2026-09-18). The pinned set is read once at startup — changing it needs a restart. `models.json` itself is also read once at startup and is now **fail-fast**: missing is fine, malformed crashes the wrapper (it used to swallow the error and silently drop every override).
 
 **Chat templates:** Models use their own embedded chat template by default. Set `"jinja": true` in a `models.json` entry when the embedded template needs the Jinja engine (Gemma 4's macro-heavy template requires it). Add `"chatTemplateFile": "templates/<model>.jinja"` only when a model genuinely ships a broken template — it overrides the embedded template at spawn via `--chat-template-file`. Do not add a hand-written template just to "fix" tool calling; a template that omits the model's tool sections breaks tool calling (the 2026-08-26 Gemma incident — the embedded template was already correct and tool-capable).
 

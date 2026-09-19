@@ -11,11 +11,54 @@
  */
 
 import fs from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import config from './config.js';
 import { createLogger } from './modules/nLogger/src/logger.js';
 
 const log = createLogger();
+
+// Reasoning modes accepted by llama-server's `--reasoning` flag.
+const REASONING_VALUES = ['on', 'off', 'auto'];
+
+// Validate values whose failure mode is silent: a typo'd reasoning mode would
+// otherwise reach llama-server and change behaviour with nothing logged.
+function validateOverrides(parsed) {
+    for (const [key, value] of Object.entries(parsed)) {
+        if (!value || typeof value !== 'object') continue;
+        if (value.reasoning === undefined) continue;
+        if (!REASONING_VALUES.includes(value.reasoning)) {
+            throw new Error(
+                `models.js: models.json entry "${key}" has reasoning: ${JSON.stringify(value.reasoning)} — must be one of ${REASONING_VALUES.join(', ')}`
+            );
+        }
+    }
+    return parsed;
+}
+
+// --- models.json overrides (loaded once, at startup) ---
+// Read at module init, not per request: the pinned set sizes the port pool, so
+// it is fixed for the process lifetime, and a malformed file must crash the
+// wrapper at startup instead of silently dropping every override.
+const overrides = loadModelOverrides();
+
+// Pinned models — `"pinned": true` in models.json. A pinned model is resident:
+// preloaded at startup, exempt from maxPerCategory, never an eviction candidate,
+// and owns one reserved port on top of the per-category pool.
+const pinnedModels = new Map();
+for (const [key, value] of Object.entries(overrides)) {
+    if (value && typeof value === 'object' && value.pinned === true) {
+        pinnedModels.set(key.toLowerCase(), key);
+    }
+}
+
+export function pinnedModelKeys() {
+    return [...pinnedModels.values()];
+}
+
+export function isPinned(modelKey) {
+    return pinnedModels.has(String(modelKey).toLowerCase());
+}
 
 // --- State ---
 let scanCache = null;          // { models: ModelEntry[], scannedAt: number }
@@ -436,24 +479,34 @@ async function findMtpDraft(dir) {
     }
 }
 
-// --- Load optional models.json overrides ---
+// --- Load models.json overrides (startup, fail-fast) ---
+// ENOENT is fine — models.json is optional. Anything else throws: a malformed
+// file silently dropped every override, so a typo meant a model ran on default
+// launch params with no error anywhere.
 
-async function loadModelOverrides() {
+function loadModelOverrides() {
     const overridesPath = path.join(config.projectRoot, 'models.json');
+    let raw;
     try {
-        const raw = await fs.readFile(overridesPath, 'utf-8');
-        return JSON.parse(raw);
-    } catch {
-        return {}; // models.json is optional
+        raw = readFileSync(overridesPath, 'utf-8');
+    } catch (err) {
+        if (err.code === 'ENOENT') return {};
+        throw new Error(`models.js: cannot read models.json: ${err.message}`);
     }
+    let parsed;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (err) {
+        throw new Error(`models.js: models.json is not valid JSON: ${err.message}`);
+    }
+    return validateOverrides(parsed);
 }
 
-// Get effective config for a model: defaults overridden by models.json entry
-export async function getModelConfig(modelKey) {
-    const overrides = await loadModelOverrides();
-
+// Get effective config for a model: defaults overridden by models.json entry.
+// Never touches the filesystem — overrides are loaded at module init.
+export function getModelConfig(modelKey) {
     // Case-insensitive key match in overrides
-    const keyLower = modelKey.toLowerCase();
+    const keyLower = String(modelKey).toLowerCase();
     const overrideKey = Object.keys(overrides).find(k => k.toLowerCase() === keyLower);
     const override = overrideKey ? overrides[overrideKey] : null;
     if (override) {
@@ -473,6 +526,7 @@ export async function getModelConfig(modelKey) {
             specDraftNMax: override.specDraftNMax ?? 4,
             jinja: override.jinja ?? false,
             chatTemplateFile: override.chatTemplateFile ?? null,
+            reasoning: override.reasoning ?? null,
         };
     }
 
@@ -493,6 +547,32 @@ export async function getModelConfig(modelKey) {
         specDraftNMax: 4,
         jinja: false,
         chatTemplateFile: null,
+        reasoning: null,
+    };
+}
+
+// --- Resolve a request "model" field into a loadable instance spec ---
+// Shared by the inference handler and the pinned preloader so the two paths
+// cannot drift on mmproj / MTP / chat-template resolution.
+
+export async function resolveLoadableModel(modelField) {
+    const resolved = await resolveModel(modelField);
+    const modelConfig = getModelConfig(resolved.modelKey || modelField);
+
+    if (resolved.mmprojPath && !modelConfig.mmprojPath) {
+        modelConfig.mmprojPath = resolved.mmprojPath;
+    }
+    if (resolved.mtpPath && !modelConfig.mtpPath) {
+        modelConfig.mtpPath = resolved.mtpPath;
+    }
+    if (modelConfig.chatTemplateFile) {
+        modelConfig.chatTemplateFile = path.join(config.projectRoot, modelConfig.chatTemplateFile);
+    }
+
+    return {
+        instanceKey: resolved.modelKey || resolved.ggufPath,
+        ggufPath: resolved.ggufPath,
+        modelConfig,
     };
 }
 

@@ -55,7 +55,7 @@ Manager (Node.js, port 4080)
 llama-server (port 4081+) — native OpenAI API
 ```
 
-The manager listens on a configurable port (default `4080`). Each `llama-server` instance is assigned a port from a pool starting at `serverPort` (default `4081`). The pool size equals `maxPerCategory.chat + maxPerCategory.embedding`.
+The manager listens on a configurable port (default `4080`). Each `llama-server` instance is assigned a port from a pool starting at `serverPort` (default `4081`). The pool size equals `maxPerCategory.chat + maxPerCategory.embedding + <number of pinned models>`. One instance = one OS process = one model; nothing is shared between instances except the binary.
 
 ---
 
@@ -99,6 +99,8 @@ These have explicit defaults if omitted. All can be overridden per-model in `mod
 
 Optional file at project root. Keys are canonical model keys (case-insensitive match). Any field present overrides the config default for that model.
 
+**Read once at startup, and required to be valid:** a missing file is fine, but an unreadable or malformed one crashes the wrapper. A silently dropped override means a model running on default launch params with no error anywhere. The `pinned` set is derived from this file at startup, so changing it requires a restart.
+
 ```json
 {
   "qwen/qwen3-embedding-4b-gguf": {
@@ -136,6 +138,8 @@ Optional file at project root. Keys are canonical model keys (case-insensitive m
 | `specDraftNMax` | number | `4` | Max draft tokens per step when MTP is active (`--spec-draft-n-max`) |
 | `jinja` | boolean | `false` | Render the embedded chat template with the Jinja engine (`--jinja`). Required for Gemma 4's macro-heavy template |
 | `chatTemplateFile` | string \| null | `null` | Override the embedded template with a file (relative to project root). Implies `--jinja --chat-template-file` |
+| `reasoning` | string \| null | `null` | Thinking mode (`--reasoning on\|off\|auto`). Set `"off"` for a resident classifier: with a small `max_tokens` the entire budget is spent inside the thinking block and `content` returns empty. An invalid value crashes the wrapper at startup |
+| `pinned` | boolean | `false` | **Resident model.** Preloaded at startup, exempt from `maxPerCategory`, never an eviction candidate, and holds one reserved port on top of the per-category pool. See *Resident (Pinned) Models* below |
 
 ---
 
@@ -476,6 +480,32 @@ If a concurrent request arrives with **different config** (e.g. different `ctxSi
 - **Chat** and **embedding** slots are independent.
 - Requesting a different chat model auto-unloads the previous one (drain + kill). The embedding instance stays untouched.
 - Category is determined by the `embedding` boolean in the effective model config.
+- **Pinned models are not counted.** The limit governs *evictable* models only.
+
+### Resident (Pinned) Models
+
+A model marked `"pinned": true` in `models.json` is a resident fast-path model. It is a second, independent `llama-server` process — **not** a slot shared with the evictable models.
+
+```json
+"<publisher>/<model>": {
+  "pinned": true,
+  "gpuLayers": 0,
+  "threads": 2,
+  "ctxSize": 4096,
+  "flashAttention": false
+}
+```
+
+Behavior:
+
+1. **Preloaded at startup**, before the manager reports ready. If a pinned model fails to load the wrapper **exits** — a resident model that is not resident is a broken deployment, not a degraded one.
+2. **Exempt from `maxPerCategory`** — it never triggers an eviction and is never counted toward a category limit.
+3. **Never an eviction candidate** — LRU selection skips pinned instances.
+4. **Reserved port** — pinned instances sit on top of the per-category pool.
+
+So `maxPerCategory: { "chat": 1 }` still means *one evictable chat model that swaps 1:1*; the pinned model is a separate process alongside it. A pinned model can be unloaded explicitly via `POST /v1/models/:model/unload` like any other.
+
+`gpuLayers: 0` keeps a small classifier on CPU by design: its cost is fixed overhead, and CPU avoids competing for the GPU lanes a big model or the STT engine is using.
 
 ### Drain & Eviction
 

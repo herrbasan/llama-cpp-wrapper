@@ -19,10 +19,9 @@
  */
 
 import http from 'node:http';
-import path from 'node:path';
 import config from './config.js';
 import { createLogger } from './modules/nLogger/src/logger.js';
-import { resolveModel, discoverModels, getModelConfig } from './models.js';
+import { discoverModels, resolveLoadableModel } from './models.js';
 import {
     ensureModel,
     killInstance,
@@ -34,6 +33,7 @@ import {
     untrackRequest,
     sweepOrphans,
     startWatchdog,
+    preloadPinnedModels,
 } from './process.js';
 
 const log = createLogger();
@@ -241,46 +241,25 @@ async function handleInference(req, res) {
         });
     }
 
-    // Resolve model key → gguf path
-    let resolved;
+    // Resolve model field → loadable instance spec
+    let spec;
     try {
-        resolved = await resolveModel(modelField);
+        spec = await resolveLoadableModel(modelField);
     } catch (err) {
         return sendJson(res, 400, { error: 'Model Resolution Failed', details: err.message });
     }
 
-    // Get effective config (defaults + models.json override)
-    const modelConfig = await getModelConfig(resolved.modelKey || modelField);
-
-    // Override mmprojPath from resolution if auto-detected
-    if (resolved.mmprojPath && !modelConfig.mmprojPath) {
-        modelConfig.mmprojPath = resolved.mmprojPath;
-    }
-
-    // Override mtpPath from resolution if auto-detected
-    if (resolved.mtpPath && !modelConfig.mtpPath) {
-        modelConfig.mtpPath = resolved.mtpPath;
-    }
-
-    // Resolve chatTemplateFile relative to project root
-    if (modelConfig.chatTemplateFile) {
-        modelConfig.chatTemplateFile = path.join(config.projectRoot, modelConfig.chatTemplateFile);
-    }
-
-    // Use resolved modelKey for instance tracking
-    const instanceKey = resolved.modelKey || resolved.ggufPath;
-
     // Ensure model is loaded (single-flight)
     let instance;
     try {
-        instance = await ensureModel(instanceKey, resolved.ggufPath, modelConfig);
+        instance = await ensureModel(spec.instanceKey, spec.ggufPath, spec.modelConfig);
     } catch (err) {
-        log.error(`Failed to start model ${instanceKey}: ${err.message}`);
+        log.error(`Failed to start model ${spec.instanceKey}: ${err.message}`);
         return sendJson(res, 500, { error: 'Failed to start model', details: err.message });
     }
 
     // Track in-flight, proxy raw
-    trackRequest(instanceKey);
+    trackRequest(spec.instanceKey);
     return proxyToInstance(req, res, bodyBuffer, instance);
 }
 
@@ -437,6 +416,15 @@ server.listen(config.port, config.host, async () => {
         await validateStartup();
     } catch (err) {
         console.error(`FATAL: ${err.message}`);
+        process.exit(1);
+    }
+
+    // Pinned (resident) models — loaded before the server reports ready, so the
+    // first request to a pinned model never pays a cold start.
+    try {
+        await preloadPinnedModels();
+    } catch (err) {
+        console.error(`FATAL: pinned model preload failed: ${err.message}`);
         process.exit(1);
     }
 

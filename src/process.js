@@ -17,6 +17,7 @@ import path from 'node:path';
 import http from 'node:http';
 import config from './config.js';
 import { createLogger } from './modules/nLogger/src/logger.js';
+import { isPinned, pinnedModelKeys, resolveLoadableModel } from './models.js';
 
 const log = createLogger();
 
@@ -28,7 +29,9 @@ const STDERR_RING_SIZE = 100;
 
 // --- Port pool (fixed range, freed on kill) ---
 const portPool = [];
-const maxPorts = (config.maxPerCategory.chat + config.maxPerCategory.embedding) || 4;
+// Pinned models hold a reserved port on top of the per-category pool — they sit
+// outside maxPerCategory by design (see ensureModelInner).
+const maxPorts = (config.maxPerCategory.chat + config.maxPerCategory.embedding + pinnedModelKeys().length) || 4;
 for (let p = config.serverPort; p < config.serverPort + maxPorts; p++) {
     portPool.push(p);
 }
@@ -141,6 +144,13 @@ function buildArgs(ggufPath, options, port) {
         args.push('--chat-template-file', options.chatTemplateFile);
     }
 
+    // Reasoning / thinking mode. A resident classifier wants `off`: with a small
+    // max_tokens the entire budget goes into the thinking block and `content`
+    // comes back empty (measured on Qwen3-0.6B, 2026-09-18).
+    if (options.reasoning) {
+        args.push('--reasoning', options.reasoning);
+    }
+
     return args;
 }
 
@@ -160,7 +170,8 @@ function configsMatch(a, b) {
         a.mmprojPath === b.mmprojPath &&
         a.mtpPath === b.mtpPath &&
         a.specDraftNMax === b.specDraftNMax &&
-        a.chatTemplateFile === b.chatTemplateFile;
+        a.chatTemplateFile === b.chatTemplateFile &&
+        a.reasoning === b.reasoning;
 }
 
 // --- Category helper ---
@@ -169,12 +180,14 @@ function getCategory(modelConfig) {
     return modelConfig.embedding ? 'embedding' : 'chat';
 }
 
+// Counts only *unpinned* instances — a pinned model occupies its reserved slot
+// and must never push a category over its limit or be counted against one.
 function countByCategory(category) {
     let count = 0;
     for (const inst of instances.values()) {
-        if (inst.state === 'running' || inst.state === 'starting') {
-            if (getCategory(inst.config) === category) count++;
-        }
+        if (inst.state !== 'running' && inst.state !== 'starting') continue;
+        if (inst.pinned) continue;
+        if (getCategory(inst.config) === category) count++;
     }
     return count;
 }
@@ -225,26 +238,30 @@ async function ensureModelInner(modelKey, ggufPath, modelConfig) {
         }
     }
 
-    // Category-based limit check
-    const categoryLimit = config.maxPerCategory[category];
-    const categoryCount = countByCategory(category);
+    // Category-based limit check — skipped entirely for a pinned model, which
+    // owns a reserved slot outside the per-category pool.
+    if (!isPinned(modelKey)) {
+        const categoryLimit = config.maxPerCategory[category];
+        const categoryCount = countByCategory(category);
 
-    if (categoryCount >= categoryLimit) {
-        // Find the LRU instance of the same category to evict
-        const candidates = [...instances.values()]
-            .filter(i => getCategory(i.config) === category &&
-                         (i.state === 'running' || i.state === 'starting') &&
-                         i.modelKey !== modelKey)
-            .sort((a, b) => a.lastUsedAt - b.lastUsedAt);
+        if (categoryCount >= categoryLimit) {
+            // Find the LRU *unpinned* instance of the same category to evict
+            const candidates = [...instances.values()]
+                .filter(i => getCategory(i.config) === category &&
+                             !i.pinned &&
+                             (i.state === 'running' || i.state === 'starting') &&
+                             i.modelKey !== modelKey)
+                .sort((a, b) => a.lastUsedAt - b.lastUsedAt);
 
-        if (candidates.length === 0) {
-            throw new Error(`Category "${category}" limit reached (${categoryLimit}) and no evictable instance. Retry later.`);
+            if (candidates.length === 0) {
+                throw new Error(`Category "${category}" limit reached (${categoryLimit}) and no evictable instance. Retry later.`);
+            }
+
+            const victim = candidates[0];
+            log.info(`Category "${category}" limit reached, evicting: ${victim.modelKey}`);
+            victim.state = 'draining';
+            await killInstance(victim.modelKey);
         }
-
-        const victim = candidates[0];
-        log.info(`Category "${category}" limit reached, evicting: ${victim.modelKey}`);
-        victim.state = 'draining';
-        await killInstance(victim.modelKey);
     }
 
     // Spawn new instance
@@ -269,6 +286,7 @@ function spawnInstance(modelKey, ggufPath, modelConfig) {
         port,
         state: 'starting',     // 'starting' | 'running' | 'draining' | 'error'
         config: modelConfig,
+        pinned: isPinned(modelKey),
         process: null,
         pid: null,
         inFlight: 0,           // active proxied requests
@@ -508,8 +526,26 @@ export function getAllInstances() {
         state: i.state,
         inFlight: i.inFlight,
         category: getCategory(i.config),
+        pinned: i.pinned,
         config: i.config,
     }));
+}
+
+// --- Pinned preload ---
+// The pinned set is a startup contract: a resident model that failed to load is
+// a broken deployment, not a degraded one, so this throws and the wrapper exits.
+
+export async function preloadPinnedModels() {
+    const keys = pinnedModelKeys();
+    if (keys.length === 0) return;
+
+    log.info(`Preloading ${keys.length} pinned model(s): ${keys.join(', ')}`);
+
+    for (const key of keys) {
+        const spec = await resolveLoadableModel(key);
+        const instance = await ensureModel(spec.instanceKey, spec.ggufPath, spec.modelConfig);
+        log.info(`Pinned model ready: ${instance.modelKey} on port ${instance.port} (pid ${instance.pid})`);
+    }
 }
 
 // --- Slot-health watchdog ---

@@ -64,5 +64,15 @@
     "gpuLayers": 99,
     "flashAttention": true,
     "mmprojPath": "T:\\Stuff\\LMStudio\\JonathanColetti\\Qwen3.8-27B-Uncensored-GGUF\\Qwen3.8-27B-Uncensored-vision-f16.gguf"
+  },
+  "Qwen/Qwen3-0.6B-GGUF": {
+    "pinned": true,
+    "ctxSize": 4096,
+    "gpuLayers": 0,
+    "threads": 2,
+    "flashAttention": false,
+    "parallelSlots": 1,
+    "jinja": true,
+    "reasoning": "off"
   }
 }
