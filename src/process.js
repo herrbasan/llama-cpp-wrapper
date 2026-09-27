@@ -107,6 +107,12 @@ function buildArgs(ggufPath, options, port) {
     args.push('--batch-size', options.batchSize.toString());
     args.push('--ubatch-size', options.ubatchSize.toString());
 
+    // Server-side prompt cache (host RAM, not VRAM). A full-ctx KV state for a
+    // 32B chat model is ~1.1 GiB, so llama-server's 8192 MiB default holds only
+    // ~7 entries and then LRU-evicts on every completed request. -1 = no limit,
+    // 0 = disable.
+    args.push('--cache-ram', options.cacheRamMiB.toString());
+
     // Embedding-specific
     if (options.embedding) {
         args.push('--embedding');
@@ -164,6 +170,7 @@ function configsMatch(a, b) {
         a.parallelSlots === b.parallelSlots &&
         a.batchSize === b.batchSize &&
         a.ubatchSize === b.ubatchSize &&
+        a.cacheRamMiB === b.cacheRamMiB &&
         a.embedding === b.embedding &&
         a.pooling === b.pooling &&
         a.mlock === b.mlock &&

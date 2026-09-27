@@ -91,7 +91,9 @@ These have explicit defaults if omitted. All can be overridden per-model in `mod
 | `defaultParallelSlots` | number | `1` | Parallel decode slots (`--parallel`) |
 | `defaultBatchSize` | number | `2048` | Batch size (`--batch-size`) |
 | `defaultUbatchSize` | number | `512` | Micro batch size (`--ubatch-size`) |
-| `firstByteTimeoutMs` | number | `300000` | Max wait for first response byte (5 min). No total timeout on streams. |
+| `defaultCacheRamMiB` | number | `8192` | Server-side prompt cache limit in host RAM (`--cache-ram`; not VRAM). `-1` = no limit, `0` = disable. A full-ctx KV state for a 32B model is ~1.1 GiB, so the default holds only ~7 entries |
+| `firstByteTimeoutMs` | number | `60000` | Max wait for first response byte. No total timeout on streams. |
+| `requestTimeoutMs` | number | `120000` | Total request timeout — kills stuck slots even after the first byte arrived. |
 | `drainTimeoutMs` | number | `30000` | Max time to wait for in-flight requests before killing an instance |
 | `modelScanTtlMs` | number | `60000` | Cache TTL for model directory scans (1 min) |
 
@@ -130,6 +132,7 @@ Optional file at project root. Keys are canonical model keys (case-insensitive m
 | `parallelSlots` | number | from config | Parallel decode slots |
 | `batchSize` | number | from config | Batch size |
 | `ubatchSize` | number | from config | Micro batch size |
+| `cacheRamMiB` | number | from config | Server-side prompt cache limit in MiB (`--cache-ram`; host RAM, not VRAM). `-1` = no limit, `0` = disable |
 | `embedding` | boolean | `false` | Enable embedding mode (`--embedding` flag) |
 | `pooling` | string \| null | `null` | Pooling type for embeddings (`--pooling`, e.g. `"mean"`, `"cls"`) |
 | `mlock` | boolean | `false` | Lock memory (`--load-mode mlock`; requires build ≥ b10499) |

@@ -74,6 +74,7 @@ export default {
     defaultParallelSlots: cfg.defaultParallelSlots ?? 1,
     defaultBatchSize: cfg.defaultBatchSize ?? 2048,
     defaultUbatchSize: cfg.defaultUbatchSize ?? 512,
+    defaultCacheRamMiB: cfg.defaultCacheRamMiB ?? 8192,
 
     // Timeouts
     firstByteTimeoutMs: cfg.firstByteTimeoutMs ?? 60000,

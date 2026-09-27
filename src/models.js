@@ -26,10 +26,15 @@ const REASONING_VALUES = ['on', 'off', 'auto'];
 function validateOverrides(parsed) {
     for (const [key, value] of Object.entries(parsed)) {
         if (!value || typeof value !== 'object') continue;
-        if (value.reasoning === undefined) continue;
-        if (!REASONING_VALUES.includes(value.reasoning)) {
+        if (value.reasoning !== undefined && !REASONING_VALUES.includes(value.reasoning)) {
             throw new Error(
                 `models.js: models.json entry "${key}" has reasoning: ${JSON.stringify(value.reasoning)} — must be one of ${REASONING_VALUES.join(', ')}`
+            );
+        }
+        if (value.cacheRamMiB !== undefined &&
+            (!Number.isInteger(value.cacheRamMiB) || value.cacheRamMiB < -1)) {
+            throw new Error(
+                `models.js: models.json entry "${key}" has cacheRamMiB: ${JSON.stringify(value.cacheRamMiB)} — must be an integer ≥ 0 (MiB; -1 = no limit, 0 = disable the prompt cache)`
             );
         }
     }
@@ -518,6 +523,7 @@ export function getModelConfig(modelKey) {
             parallelSlots: override.parallelSlots ?? config.defaultParallelSlots,
             batchSize: override.batchSize ?? config.defaultBatchSize,
             ubatchSize: override.ubatchSize ?? config.defaultUbatchSize,
+            cacheRamMiB: override.cacheRamMiB ?? config.defaultCacheRamMiB,
             embedding: override.embedding ?? false,
             pooling: override.pooling ?? null,
             mlock: override.mlock ?? false,
@@ -539,6 +545,7 @@ export function getModelConfig(modelKey) {
         parallelSlots: config.defaultParallelSlots,
         batchSize: config.defaultBatchSize,
         ubatchSize: config.defaultUbatchSize,
+        cacheRamMiB: config.defaultCacheRamMiB,
         embedding: false,
         pooling: null,
         mlock: false,
